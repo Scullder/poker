@@ -24,7 +24,6 @@ func main() {
 		{Suit: 1, Val: 3},
 		{Suit: 1, Val: 4},
 	}
-	//fmt.Println(cards)
 
 	rank, err := player.EvalCombo(cards)
 	if err != nil {
