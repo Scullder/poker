@@ -2,7 +2,6 @@ package player
 
 /*
 * TODO: Observer for game actions. EvalCombo for every game state(preflop, flop, turn, river)
-* TODO: Ace - 1 and 13 at same time
  */
 
 import (
@@ -14,24 +13,44 @@ import (
 
 type PlayerInterface interface {
 	SetHand([]deck.Card)
+	SetStack(stack int)
+	Bet(sum int) int
+	EvalCombo(table []deck.Card) (string, []deck.Card, error)
 }
 
 type Player struct {
-	Name         string
-	Id           int
-	Hand         []deck.Card
-	CurrentCombo []deck.Deck
+	Name  string
+	Id    int
+	Hand  []deck.Card
+	Stack int
 }
 
 func MakePlayer(name string, id int) Player {
 	return Player{
 		Name: name,
+		Id:   id,
 		Hand: make([]deck.Card, 0, 2),
 	}
 }
 
 func (p *Player) SetHand(cards []deck.Card) {
 	p.Hand = cards[:2]
+}
+
+func (p *Player) SetStack(sum int) int {
+	p.Stack += sum
+
+	return p.Stack
+}
+
+func (p *Player) Bet(sum int) (int, error) {
+	if p.Stack-sum < 0 {
+		return 0, errors.New("stack below zero")
+	}
+
+	p.Stack -= sum
+
+	return p.Stack, nil
 }
 
 func (p Player) EvalCombo(table []deck.Card) (string, []deck.Card, error) {
@@ -48,10 +67,6 @@ func (p Player) EvalCombo(table []deck.Card) (string, []deck.Card, error) {
 }
 
 func EvalCombo(cards []deck.Card) (string, []deck.Card) {
-	sort.SliceStable(cards, func(i, j int) bool {
-		return cards[i].Val > cards[j].Val
-	})
-
 	combinations := map[string][]deck.Card{
 		"royal flush":    {},
 		"straight flush": {},
@@ -88,22 +103,19 @@ func EvalCombo(cards []deck.Card) (string, []deck.Card) {
 	// count not null suits for value[i]
 	suitIndexes := []int{}
 	key := ""
+	out := false
 
-	// straight counter
 	straightBuilder := []deck.Card{}
 
-	// straight(+royal) flush counter
 	straightFlushBuilder := [4][]deck.Card{}
 
+	// Put Ace to the straight Flush, because the value of Ace is 1
 	for i, suit := range deckValues[1] {
 		if suit == 1 {
 			straightFlushBuilder[i] = append(straightFlushBuilder[i], deck.Card{Val: i, Suit: i})
 		}
 	}
 
-	out := false
-
-	// flush
 	flushBuilder := [4][]deck.Card{}
 
 	for i := len(deckValues) - 1; i > 0; i-- {
@@ -178,12 +190,9 @@ func EvalCombo(cards []deck.Card) (string, []deck.Card) {
 		key = ""
 	}
 
-	/* for name, comb := range combinations {
-		fmt.Printf("%v:%v\n", name, comb)
-	} */
-
 	resultKey, resultComb := "", []deck.Card{}
 
+	// Search higher combination
 	for _, comb := range combinationsPriority {
 		if len(combinations[comb]) > 0 {
 			resultKey = comb
@@ -192,6 +201,7 @@ func EvalCombo(cards []deck.Card) (string, []deck.Card) {
 		}
 	}
 
+	// Sorting
 	sort.SliceStable(resultComb, func(i, j int) bool {
 		if resultComb[i].Val != resultComb[j].Val {
 			return resultComb[i].Val < resultComb[j].Val
@@ -199,8 +209,8 @@ func EvalCombo(cards []deck.Card) (string, []deck.Card) {
 
 		return resultComb[i].Suit < resultComb[j].Suit
 	})
-	//fmt.Printf("%v:%v\n", resultKey, resultComb)
 
+	// Is staraight flush - royal flush
 	if resultKey == "straight flush" && resultComb[4].Val == 13 {
 		resultKey = "royal flush"
 	}
