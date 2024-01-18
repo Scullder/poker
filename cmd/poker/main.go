@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/Scullder/poker/internal/ws"
+	pokerWebsocket "github.com/Scullder/poker/internal/websocket"
 	"github.com/gorilla/mux"
 )
 
@@ -16,12 +16,14 @@ func RootHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func setupAPI() {
-	manager := ws.NewManager()
+	handlers := pokerWebsocket.GetHandlers()
+	manager := pokerWebsocket.NewManager(handlers)
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", RootHandler)
-	router.HandleFunc("/ws", manager.ServerWs)
+	router.HandleFunc("/websocket", manager.ServerWs)
 
+	http.Handle("/web/", http.StripPrefix("/web/", http.FileServer(http.Dir("web"))))
 	http.Handle("/", router)
 }
 
